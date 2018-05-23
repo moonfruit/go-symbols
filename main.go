@@ -217,6 +217,7 @@ func doMain() error {
 		}
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			sema <- 1 // acquire token
 			defer func() {
 				<-sema // release token
@@ -226,13 +227,6 @@ func doMain() error {
 				fset:  fset,
 				query: query,
 			}
-			defer func() {
-				mutex.Lock()
-				syms = append(syms, v.syms...)
-				mutex.Unlock()
-			}()
-
-			defer wg.Done()
 
 			if haveSrcDir {
 				path = filepath.Join(dir, "src", path)
@@ -249,6 +243,9 @@ func doMain() error {
 					ast.Inspect(f, v.Visit)
 				}
 			}
+			mutex.Lock()
+			syms = append(syms, v.syms...)
+			mutex.Unlock()
 		}()
 	})
 	wg.Wait()
