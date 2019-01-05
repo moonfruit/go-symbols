@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 
@@ -266,6 +267,10 @@ func doMain() error {
 		}()
 	})
 	wg.Wait()
+
+	sort.Slice(syms, func(i, j int) bool {
+		return strings.ToLower(syms[i].Name) < strings.ToLower(syms[j].Name)
+	})
 
 	b, _ := json.MarshalIndent(syms, "", " ")
 	fmt.Println(string(b))
