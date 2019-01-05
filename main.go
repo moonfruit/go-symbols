@@ -60,11 +60,27 @@ func (v *visitor) Visit(node ast.Node) bool {
 
 	var ident *ast.Ident
 	var kind string
+	var structName string
+
 	switch t := node.(type) {
 	case *ast.FuncDecl:
 		kind = "func"
 		ident = t.Name
 		descend = false
+		if nil != t.Recv {
+			if 1 == len(t.Recv.List) {
+				switch xt := t.Recv.List[0].Type.(type) {
+				case *ast.Ident:
+					structName = xt.Name + "."
+				case *ast.StarExpr:
+					switch xt2 := xt.X.(type) {
+					case *ast.Ident:
+						structName = xt2.Name + "."
+					}
+				}
+
+			}
+		}
 
 	case *ast.TypeSpec:
 		kind = "type"
@@ -77,7 +93,7 @@ func (v *visitor) Visit(node ast.Node) bool {
 		v.syms = append(v.syms, symbol{
 			Package: v.pkg.Name,
 			Path:    f.Name(),
-			Name:    ident.Name,
+			Name:    structName + ident.Name,
 			Kind:    kind,
 			Line:    f.Line(ident.Pos()) - 1,
 		})
