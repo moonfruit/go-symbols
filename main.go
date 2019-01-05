@@ -156,7 +156,8 @@ func allPackages(ctxt *build.Context, sema chan bool, root string, ch chan<- ite
 		sema <- true
 		files, err := ioutil.ReadDir(dir)
 		<-sema
-		if pkg != "" || err != nil {
+		if err == nil {
+			// if pkg != "" || err != nil {
 			ch <- item{pkg, err}
 		}
 		for _, fi := range files {
@@ -212,9 +213,9 @@ func doMain() error {
 	// Here we can't use buildutil.ForEachPackage here since it only considers
 	// src dirs and this tool should be able to run against a golang source dir.
 	forEachPackage(&ctxt, func(path string, err error) {
-		if path == "" {
-			return
-		}
+		// if path == "" {
+		// 	return
+		// }
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
