@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 
@@ -60,11 +61,29 @@ func (v *visitor) Visit(node ast.Node) bool {
 
 	var ident *ast.Ident
 	var kind string
+	var structName string
+
 	switch t := node.(type) {
 	case *ast.FuncDecl:
 		kind = "func"
 		ident = t.Name
 		descend = false
+		// Adding struct(class) name before function name if it's struct method
+		if t.Recv != nil {
+			// if function is method it hast 1 member in Recv list with type ident
+			if len(t.Recv.List) == 1 {
+				switch xt := t.Recv.List[0].Type.(type) {
+				case *ast.Ident: // in case if it's plain struct
+					structName = xt.Name + "."
+				case *ast.StarExpr: // in case it's pointer to struct
+					switch xt2 := xt.X.(type) {
+					case *ast.Ident:
+						structName = xt2.Name + "."
+					}
+				}
+
+			}
+		}
 
 	case *ast.TypeSpec:
 		kind = "type"
@@ -77,7 +96,7 @@ func (v *visitor) Visit(node ast.Node) bool {
 		v.syms = append(v.syms, symbol{
 			Package: v.pkg.Name,
 			Path:    f.Name(),
-			Name:    ident.Name,
+			Name:    structName + ident.Name,
 			Kind:    kind,
 			Line:    f.Line(ident.Pos()) - 1,
 		})
@@ -156,7 +175,8 @@ func allPackages(ctxt *build.Context, sema chan bool, root string, ch chan<- ite
 		sema <- true
 		files, err := ioutil.ReadDir(dir)
 		<-sema
-		if pkg != "" || err != nil {
+
+		if err == nil {
 			ch <- item{pkg, err}
 		}
 		for _, fi := range files {
@@ -212,9 +232,6 @@ func doMain() error {
 	// Here we can't use buildutil.ForEachPackage here since it only considers
 	// src dirs and this tool should be able to run against a golang source dir.
 	forEachPackage(&ctxt, func(path string, err error) {
-		if path == "" {
-			return
-		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -249,6 +266,10 @@ func doMain() error {
 		}()
 	})
 	wg.Wait()
+
+	sort.Slice(syms, func(i, j int) bool {
+		return strings.ToLower(syms[i].Name) < strings.ToLower(syms[j].Name)
+	})
 
 	b, _ := json.MarshalIndent(syms, "", " ")
 	fmt.Println(string(b))
