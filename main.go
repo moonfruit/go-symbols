@@ -68,12 +68,14 @@ func (v *visitor) Visit(node ast.Node) bool {
 		kind = "func"
 		ident = t.Name
 		descend = false
-		if nil != t.Recv {
-			if 1 == len(t.Recv.List) {
+		// Adding struct(class) name before function name if it's struct method
+		if t.Recv != nil {
+			// if function is method it hast 1 member in Recv list with type ident
+			if len(t.Recv.List) == 1 {
 				switch xt := t.Recv.List[0].Type.(type) {
-				case *ast.Ident:
+				case *ast.Ident: // in case if it's plain struct
 					structName = xt.Name + "."
-				case *ast.StarExpr:
+				case *ast.StarExpr: // in case it's pointer to struct
 					switch xt2 := xt.X.(type) {
 					case *ast.Ident:
 						structName = xt2.Name + "."
@@ -173,8 +175,8 @@ func allPackages(ctxt *build.Context, sema chan bool, root string, ch chan<- ite
 		sema <- true
 		files, err := ioutil.ReadDir(dir)
 		<-sema
+
 		if err == nil {
-			// if pkg != "" || err != nil {
 			ch <- item{pkg, err}
 		}
 		for _, fi := range files {
@@ -230,9 +232,6 @@ func doMain() error {
 	// Here we can't use buildutil.ForEachPackage here since it only considers
 	// src dirs and this tool should be able to run against a golang source dir.
 	forEachPackage(&ctxt, func(path string, err error) {
-		// if path == "" {
-		// 	return
-		// }
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
